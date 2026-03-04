@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Napoli Cultura - Mappa Interattiva</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+    <!-- jQuery per caricare il JSON -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <style>
+        /* CSS moderno e migliorato */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            color: #1a1a1a;
+            line-height: 1.6;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #1a2530 100%);
+            padding: 1.8rem 2.5rem;
+            color: white;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3498db, #2ecc71, #e74c3c);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 0.8rem;
+            background: linear-gradient(90deg, #fff 0%, #bdc3c7 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 1.05rem;
+            max-width: 800px;
+            font-weight: 400;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: 1.5rem;
+            gap: 1.5rem;
+        }
+
+        .map-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .map-container {
+            flex: 1;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow:
+                0 10px 30px rgba(0, 0, 0, 0.12),
+                0 1px 3px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .map-container:hover {
+            transform: translateY(-2px);
+            box-shadow:
+                0 15px 40px rgba(0, 0, 0, 0.15),
+                0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+        }
+
+        .sidebar {
+            width: 360px;
+            background: white;
+            padding: 1.8rem;
+            overflow-y: auto;
+            border-radius: 16px;
+            box-shadow:
+                0 10px 30px rgba(0, 0, 0, 0.12),
+                0 1px 3px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            gap: 1.8rem;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding-bottom: 1.8rem;
+            border-bottom: 1px solid #f0f2f5;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 1rem 1.2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .btn-zoom {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+
+        .btn-zoom:hover {
+            background: linear-gradient(135deg, #2980b9 0%, #1f6396 100%);
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn-reset {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background: linear-gradient(135deg, #27ae60 0%, #219653 100%);
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(46, 204, 113, 0.4);
+        }
+
+        .stats,
+        .legend {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #eef2f7;
+        }
+
+        .stats h3,
+        .legend h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1.2rem;
+            color: #2c3e50;
+            font-weight: 700;
+            padding-bottom: 0.8rem;
+            border-bottom: 2px solid #3498db;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .stats h3::before,
+        .legend h3::before {
+            content: '📊';
+            font-size: 1.1rem;
+        }
+
+        .legend h3::before {
+            content: '🗺️';
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 0;
+            border-bottom: 1px solid #f0f2f5;
+            transition: background-color 0.2s;
+        }
+
+        .stat-row:hover {
+            background-color: rgba(52, 152, 219, 0.05);
+            border-radius: 8px;
+            padding-left: 0.8rem;
+            padding-right: 0.8rem;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #5a6c7d;
+            font-size: 0.95rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .stat-value {
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            min-width: 44px;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+
+        .stat-row:hover .stat-value {
+            transform: scale(1.05);
+        }
+
+        .legend-items {
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            background: white;
+            border-radius: 12px;
+            border-left: 4px solid #3498db;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .legend-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border-left-color: #e74c3c;
+        }
+
+        .legend-icon {
+            width: 36px;
+            height: 36px;
+            margin-right: 1rem;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            border: 2px solid #f0f2f5;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .legend-icon img {
+            width: 70%;
+            height: 70%;
+            object-fit: contain;
+        }
+
+        .legend-text {
+            flex: 1;
+            font-size: 0.95rem;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .legend-count {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 3px 8px rgba(231, 76, 60, 0.3);
+        }
+
+        .footer {
+            background: linear-gradient(135deg, #1a2530 0%, #2c3e50 100%);
+            color: rgba(255, 255, 255, 0.9);
+            padding: 1.2rem 2.5rem;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer p {
+            opacity: 0.85;
+            transition: opacity 0.3s;
+        }
+
+        .footer:hover p {
+            opacity: 1;
+        }
+
+        /* Scrollbar personalizzata */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #2980b9 0%, #27ae60 100%);
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 320px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                overflow-y: auto;
+            }
+
+            .main-content {
+                flex-direction: column;
+                padding: 1rem;
+                gap: 1rem;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-height: 50vh;
+            }
+
+            .map-section {
+                min-height: 60vh;
+            }
+
+            .header {
+                padding: 1.5rem 1.8rem;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 1.2rem 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .header p {
+                font-size: 0.95rem;
+            }
+
+            .btn {
+                padding: 0.9rem 1rem;
+                font-size: 0.85rem;
+            }
+
+            .stats,
+            .legend {
+                padding: 1.2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>Luoghi di Cultura - Napoli</h1>
+        <p>Mappa interattiva con clustering dei marker. Carica dati dal file JSON o utilizza quelli di esempio.</p>
+    </div>
+
+    <div class="main-content">
+        <div class="map-section">
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="controls">
+                <button class="btn btn-zoom" id="btn-zoom">🔍 Zoom Completo</button>
+                <button class="btn btn-reset" id="btn-reset">📍 Vista Centrale</button>
+            </div>
+
+            <div class="stats">
+                <h3>Statistiche</h3>
+                <div class="stat-row">
+                    <span class="stat-label">Luoghi totali</span>
+                    <span class="stat-value" id="total-markers">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Tipologie</span>
+                    <span class="stat-value" id="tipologie-count">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Cluster attivi</span>
+                    <span class="stat-value" id="cluster-count">0</span>
+                </div>
+            </div>
+
+            <div class="legend">
+                <h3>Legenda Tipologie</h3>
+                <div class="legend-items" id="legend-content">
+                    <!-- La legenda verrà popolata dinamicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Realizzato con Leaflet.js | Dati da file JSON con fallback a dati locali</p>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        // Inizializza la mappa
+        var map = L.map('map').setView([40.8518, 14.2681], 13);
+
+        // Aggiungi il layer OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // PASSO 1: Dichiarare il cluster group
+        var markers = L.markerClusterGroup({
+            maxClusterRadius: 80,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: true,
+            zoomToBoundsOnClick: true
+        });
+
+        // Variabili per le statistiche
+        var tipologieMap = {};
+        var totalMarkers = 0;
+
+        // Funzione per creare un marker
+        function createMarker(feature) {
+            var latlng = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
+            var props = feature.properties || {};
+
+            // Aggiorna conteggio tipologie
+            var tipologia = props.tipologia || 'sconosciuta';
+            if (!tipologieMap[tipologia]) {
+                tipologieMap[tipologia] = 0;
+            }
+            tipologieMap[tipologia]++;
+            totalMarkers++;
+
+            // Crea popup content
+            var popupContent = '<div style="max-width: 280px; padding: 8px;">';
+
+            if (props.nome) {
+                popupContent += '<h4 style="margin: 0 0 8px 0; color: #2c3e50;">' + props.nome + '</h4>';
+            }
+
+            if (props.descrizione) {
+                popupContent += '<p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">' + props.descrizione + '</p>';
+            }
+
+            if (props.indirizzo) {
+                popupContent += '<p style="margin: 0 0 8px 0; font-size: 13px;"><strong>📍</strong> ' + props.indirizzo + '</p>';
+            }
+
+            if (tipologia) {
+                popupContent += '<span style="display: inline-block; background: #3498db; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">' +
+                    tipologia.charAt(0).toUpperCase() + tipologia.slice(1) +
+                    '</span>';
+            }
+
+            popupContent += '</div>';
+
+            // Crea icona - usa sempre le icone PNG dalla cartella icons/
+            var iconUrl = 'icons/' + tipologia + '.png';
+
+            var icon = L.icon({
+                iconUrl: iconUrl,
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -32],
+                shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+            });
+
+            // Crea marker
+            var marker = L.marker(latlng, {
+                icon: icon,
+                title: props.nome || 'Luogo di cultura'
+            });
+
+            // Aggiungi popup
+            marker.bindPopup(popupContent);
+
+            return marker;
+        }
+
+        // Funzione per aggiornare statistiche
+        function updateStats() {
+            document.getElementById('total-markers').textContent = totalMarkers;
+            document.getElementById('tipologie-count').textContent = Object.keys(tipologieMap).length;
+        }
+
+        // Funzione per aggiornare legenda con icone PNG
+        function updateLegend() {
+            var legendContent = document.getElementById('legend-content');
+            legendContent.innerHTML = '';
+
+            var tipologie = Object.keys(tipologieMap);
+
+            tipologie.forEach(function (tipologia) {
+                var count = tipologieMap[tipologia];
+
+                var legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+
+                // Usa l'icona PNG per la legenda - stesso path dei marker
+                var iconPath = 'icons/' + tipologia + '.png';
+
+                // Crea l'elemento icona con fallback
+                var iconHtml = '<div class="legend-icon">' +
+                    '<img src="' + iconPath + '" alt="' + tipologia + '" ' +
+                    'onerror="if(this.src!=\'' + iconPath + '\'){this.src=\'' + iconPath + '\'}else{this.style.display=\'none\';this.parentElement.innerHTML=\'<span style=\"font-size:1.2rem\">📍</span>\'};">' +
+                    '</div>';
+
+                legendItem.innerHTML =
+                    iconHtml +
+                    '<div class="legend-text">' +
+                    tipologia.charAt(0).toUpperCase() + tipologia.slice(1) +
+                    '</div>' +
+                    '<div class="legend-count">' + count + '</div>';
+
+                legendContent.appendChild(legendItem);
+            });
+
+            if (tipologie.length === 0) {
+                legendContent.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">Nessuna tipologia trovata</div>';
+            }
+        }
+
+        // Funzione per aggiornare conteggio cluster
+        function updateClusterCount() {
+            setTimeout(function () {
+                var visibleMarkers = 0;
+                markers.eachLayer(function () {
+                    visibleMarkers++;
+                });
+                document.getElementById('cluster-count').textContent = visibleMarkers;
+            }, 100);
+        }
+
+        // PASSO 2: Caricare il file JSON con $.getJSON
+        $.getJSON('./luoghi_cultura_napoli.geojson')
+            .done(function (data) {
+                console.log("File JSON caricato con successo");
+
+                // Processa i dati
+                if (data && data.features) {
+                    data.features.forEach(function (feature) {
+                        var marker = createMarker(feature);
+                        markers.addLayer(marker);
+                    });
+
+                    // Aggiungi cluster alla mappa
+                    map.addLayer(markers);
+
+                    // Aggiorna UI
+                    updateStats();
+                    updateLegend();
+                    updateClusterCount();
+
+                    // Zoom a tutti i marker
+                    map.fitBounds(markers.getBounds().pad(0.1));
+
+                    console.log("Marker creati:", totalMarkers);
+                } else {
+                    console.error("Formato JSON non valido");
+                    loadSampleData();
+                }
+            })
+            .fail(function (jqxhr, textStatus, error) {
+                console.log("Errore nel caricamento JSON:", textStatus, error);
+                loadSampleData();
+            });
+
+        // Fallback: dati di esempio se il JSON non viene trovato
+        function loadSampleData() {
+            console.log("Caricamento dati di esempio...");
+
+            var sampleFeatures = [
+                {
+                    geometry: { coordinates: [14.2506, 40.8534], type: "Point" },
+                    properties: {
+                        nome: "Museo Archeologico Nazionale",
+                        tipologia: "museo",
+                        descrizione: "Tra i più importanti musei archeologici al mondo",
+                        indirizzo: "Piazza Museo, 19"
+                    }
+                },
+                {
+                    geometry: { coordinates: [14.2495, 40.8355], type: "Point" },
+                    properties: {
+                        nome: "Palazzo Reale",
+                        tipologia: "palazzo",
+                        descrizione: "Residenza storica dei sovrani di Napoli",
+                        indirizzo: "Piazza del Plebiscito, 1"
+                    }
+                },
+                {
+                    geometry: { coordinates: [14.2498, 40.8375], type: "Point" },
+                    properties: {
+                        nome: "Teatro San Carlo",
+                        tipologia: "teatro",
+                        descrizione: "Il più antico teatro d'opera in Europa",
+                        indirizzo: "Via San Carlo, 98/F"
+                    }
+                },
+                {
+                    geometry: { coordinates: [14.2478, 40.8283], type: "Point" },
+                    properties: {
+                        nome: "Castel dell'Ovo",
+                        tipologia: "castello",
+                        descrizione: "Il castello più antico di Napoli",
+                        indirizzo: "Via Eldorado, 3"
+                    }
+                },
+                {
+                    geometry: { coordinates: [14.2542, 40.8475], type: "Point" },
+                    properties: {
+                        nome: "Cappella Sansevero",
+                        tipologia: "monumento",
+                        descrizione: "Famosa per il Cristo Velato",
+                        indirizzo: "Via Francesco de Sanctis, 19/21"
+                    }
+                }
+            ];
+
+            // Crea marker dai dati di esempio
+            sampleFeatures.forEach(function (feature) {
+                var marker = createMarker(feature);
+                markers.addLayer(marker);
+            });
+
+            // Aggiungi cluster alla mappa
+            map.addLayer(markers);
+
+            // Aggiorna UI
+            updateStats();
+            updateLegend();
+            updateClusterCount();
+
+            // Zoom a tutti i marker
+            map.fitBounds(markers.getBounds().pad(0.1));
+
+            console.log("Dati di esempio caricati");
+        }
+
+        // Controlli
+        document.getElementById('btn-zoom').addEventListener('click', function () {
+            if (markers.getBounds().isValid()) {
+                map.fitBounds(markers.getBounds().pad(0.1));
+            }
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', function () {
+            map.setView([40.8518, 14.2681], 13);
+            updateClusterCount();
+        });
+
+        // Aggiorna conteggio cluster quando la mappa cambia
+        map.on('moveend zoomend', updateClusterCount);
+
+        // Aggiungi scala
+        L.control.scale({ imperial: false }).addTo(map);
+    </script>
+</body>
+
+</html>
